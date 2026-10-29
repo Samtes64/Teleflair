@@ -1,0 +1,25 @@
+name = "teleboard-delivery"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+DEFAULT_EXPIRATION_HOURS = "24"
+MAX_EXPIRATION_HOURS = "168"
+MAX_UPLOAD_SIZE_BYTES = "5242880"
+# Configure ADMIN_SECRET and TELEGRAM_BOT_TOKEN securely using:
+# npx wrangler secret put ADMIN_SECRET
+# npx wrangler secret put TELEGRAM_BOT_TOKEN
+
+# Cloudflare R2 bucket binding for sticker storage
+[[r2_buckets]]
+binding = "STICKER_BUCKET"
+bucket_name = "teleboard-stickers"
+preview_bucket_name = "teleboard-stickers-preview"
+
+# Optional Cloudflare KV binding (uncomment if using KV metadata index)
+# [[kv_namespaces]]
+# binding = "STICKER_KV"
+# id = "teleboard_kv_id"
+# preview_id = "teleboard_kv_preview_id"

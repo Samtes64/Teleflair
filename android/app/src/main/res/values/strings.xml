@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Teleflair</string>
+    <string name="ime_name">Teleflair Keyboard</string>
+    <string name="context_scanner_name">Teleflair Smart Context Detection</string>
+    <string name="context_scanner_description">Detects whether you are writing a comment, post, or message to automatically format text and Braille art. 100% offline, local-only, zero keystrokes tracked.</string>
+</resources>

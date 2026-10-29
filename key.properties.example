@@ -1,0 +1,7 @@
+# Android Release Signing Configuration Example
+# Copy this file to 'key.properties' and fill in your private credentials.
+# Do NOT commit key.properties or your *.keystore file to version control.
+keyAlias=teleflair
+keyPassword=your_key_password_here
+storeFile=teleflair.keystore
+storePassword=your_keystore_password_here
