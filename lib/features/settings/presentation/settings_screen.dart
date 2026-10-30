@@ -31,7 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   bool _isAccessibilityEnabled = false;
   bool _enableTextArtFallback = true;
   String _keyboardArtStyle = 'braille';
-  String _keyboardArtTheme = 'dark';
+  String _keyboardArtTheme = 'light';
   Map<String, dynamic> _storageMetrics = {};
   List<DeliveryRecord> _recentDeliveries = [];
 
@@ -201,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         _botTokenController.text = prefs.getString('telegram_bot_token') ?? '';
         _enableTextArtFallback = prefs.getBool('enable_text_art_fallback') ?? true;
         _keyboardArtStyle = prefs.getString('keyboard_art_style') ?? 'braille';
-        _keyboardArtTheme = prefs.getString('keyboard_art_theme') ?? 'dark';
+        _keyboardArtTheme = prefs.getString('keyboard_art_theme') ?? 'light';
         _keyboardTheme = prefs.getString('keyboard_theme') ?? 'midnight_slate';
         _keyboardFontSize = prefs.getString('keyboard_font_size') ?? 'medium';
         _keyboardHeightScale = prefs.getString('keyboard_height_scale') ?? 'standard';
@@ -819,8 +819,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                               value: _keyboardArtTheme,
                               dropdownColor: isDark ? AppColors.darkCard : AppColors.lightCard,
                               items: const [
-                                DropdownMenuItem(value: 'dark', child: Text('Dark Theme Art (White dots on dark background, Default)')),
-                                DropdownMenuItem(value: 'light', child: Text('Light Theme Art (Black ink dots on white background)')),
+                                DropdownMenuItem(value: 'light', child: Text('Light Theme Art (Black ink dots on white background, Default)')),
+                                DropdownMenuItem(value: 'dark', child: Text('Dark Theme Art (White dots on dark background)')),
                               ],
                               onChanged: (val) {
                                 if (val != null) _updateKeySetting(() => _keyboardArtTheme = val);

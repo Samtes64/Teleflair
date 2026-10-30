@@ -295,9 +295,9 @@ class SmartDeliveryCoordinator(
         val artStyle = prefs.getString("flutter.keyboard_art_style", "braille") ?: "braille"
         val useAscii = forceAscii || (artStyle.lowercase() == "ascii")
 
-        // Theme Polarity: Always Dark Theme Art by default (Standard for Telegram & mobile chat bubbles)
-        val themePref = prefs.getString("flutter.keyboard_art_theme", "dark") ?: "dark"
-        val isDarkMode = themePref != "light"
+        // Theme Polarity: Light Theme Art by default (Black ink on light background)
+        val themePref = prefs.getString("flutter.keyboard_art_theme", "light") ?: "light"
+        val isDarkMode = themePref == "dark"
 
         val artString = SmartContextArtAdapter.convertStickerToArt(
             imageFile = originalFile,
