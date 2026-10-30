@@ -56,6 +56,33 @@ class MainActivity : FlutterActivity() {
                     startActivity(intent)
                     result.success(true)
                 }
+                "canRequestPackageInstalls" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        result.success(packageManager.canRequestPackageInstalls())
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "openInstallPermissionSettings" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            val manageIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = Uri.parse("package:$packageName")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(manageIntent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            val generalIntent = Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(generalIntent)
+                            result.success(true)
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
                 "installApk" -> {
                     val filePath = call.argument<String>("filePath")
                     if (filePath.isNullOrEmpty()) {
@@ -71,12 +98,19 @@ class MainActivity : FlutterActivity() {
                     // Check for unknown sources permission on Android 8.0+ (Oreo)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         if (!packageManager.canRequestPackageInstalls()) {
-                            val manageIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                data = Uri.parse("package:$packageName")
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            try {
+                                val manageIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                    data = Uri.parse("package:$packageName")
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(manageIntent)
+                            } catch (e: Exception) {
+                                val generalIntent = Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(generalIntent)
                             }
-                            startActivity(manageIntent)
-                            result.success(false)
+                            result.success("PERMISSION_NEEDED")
                             return@setMethodCallHandler
                         }
                     }
@@ -93,7 +127,7 @@ class MainActivity : FlutterActivity() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         startActivity(installIntent)
-                        result.success(true)
+                        result.success("SUCCESS")
                     } catch (e: Exception) {
                         result.error("INSTALL_FAILED", e.localizedMessage, null)
                     }

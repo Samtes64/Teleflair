@@ -658,35 +658,74 @@ export function renderAdminDashboardHtml(data: AdminDashboardData): string {
 
     <!-- TAB 3: OTA RELEASES -->
     <div id="tab-releases" class="tab-content">
-      <div class="card-box" style="max-width: 600px;">
-        <div class="card-header">
-          <div class="card-title">App Release & OTA Update Configuration</div>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 20px;">
-          Mobile apps ping <code>/api/app/latest</code> on launch. When you increase the version code, users are automatically prompted with your in-app updater.
-        </p>
+      <div class="split-grid">
+        <div class="card-box">
+          <div class="card-header">
+            <div class="card-title">Upload APK to Cloudflare R2</div>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 20px;">
+            Upload your release APK directly to R2. The worker hosts the binary and sets the download URL to <code>${baseUrl}/api/app/download</code>.
+          </p>
 
-        <form id="release-form" onsubmit="saveRelease(event)">
-          <div class="form-row">
-            <label>Version Name</label>
-            <input type="text" id="rel-version" class="form-input" value="${release.version}" required />
+          <form id="apk-upload-form" onsubmit="uploadApkFile(event)">
+            <div class="form-row">
+              <label>Select APK File (.apk)</label>
+              <input type="file" id="apk-file" accept=".apk" class="form-input" required />
+            </div>
+            <div class="form-row">
+              <label>Version Name (e.g. 1.0.1)</label>
+              <input type="text" id="apk-version" class="form-input" value="${release.version}" required />
+            </div>
+            <div class="form-row">
+              <label>Version Code (e.g. ${release.versionCode + 1})</label>
+              <input type="number" id="apk-code" class="form-input" value="${release.versionCode + 1}" required />
+            </div>
+            <div class="form-row">
+              <label>Release Notes</label>
+              <textarea id="apk-notes" class="form-input" style="height: 60px; resize: vertical;">Bug fixes, light theme default, and UI performance improvements.</textarea>
+            </div>
+            <button type="submit" id="apk-upload-btn" class="btn btn-primary" style="padding: 12px 20px;">
+              Upload APK & Publish OTA Update
+            </button>
+            <div id="apk-upload-status" style="margin-top: 10px; font-size: 0.8125rem; color: var(--accent-violet);"></div>
+          </form>
+        </div>
+
+        <div class="card-box">
+          <div class="card-header">
+            <div class="card-title">Release Metadata & External URL</div>
           </div>
-          <div class="form-row">
-            <label>Version Code (Integer)</label>
-            <input type="number" id="rel-code" class="form-input" value="${release.versionCode}" required />
-          </div>
-          <div class="form-row">
-            <label>APK Direct Download URL</label>
-            <input type="url" id="rel-url" class="form-input" value="${release.downloadUrl}" required />
-          </div>
-          <div class="form-row">
-            <label>Release Notes</label>
-            <textarea id="rel-notes" class="form-input" style="height: 80px; resize: vertical;">${release.releaseNotes}</textarea>
-          </div>
-          <button type="submit" class="btn btn-primary" style="padding: 12px 20px;">
-            Save & Publish Update Metadata
-          </button>
-        </form>
+          <p style="color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 20px;">
+            Point mobile apps to an external download URL (e.g. GitHub Releases) or view current settings.
+          </p>
+
+          <form id="release-form" onsubmit="saveRelease(event)">
+            <div class="form-row">
+              <label>Current Version Name</label>
+              <input type="text" id="rel-version" class="form-input" value="${release.version}" required />
+            </div>
+            <div class="form-row">
+              <label>Current Version Code</label>
+              <input type="number" id="rel-code" class="form-input" value="${release.versionCode}" required />
+            </div>
+            <div class="form-row">
+              <label>APK Direct Download URL</label>
+              <input type="url" id="rel-url" class="form-input" value="${release.downloadUrl}" required />
+            </div>
+            <div class="form-row">
+              <label>Release Notes</label>
+              <textarea id="rel-notes" class="form-input" style="height: 60px; resize: vertical;">${release.releaseNotes}</textarea>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button type="submit" class="btn btn-primary" style="padding: 12px 20px;">
+                Save Metadata
+              </button>
+              <a href="/api/app/download" target="_blank" class="btn btn-secondary" style="text-decoration: none; padding: 12px 16px;">
+                Download Current APK
+              </a>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -745,6 +784,47 @@ export function renderAdminDashboardHtml(data: AdminDashboardData): string {
         location.reload();
       } else {
         alert('Failed to revoke sticker.');
+      }
+    }
+
+    async function uploadApkFile(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('apk-file');
+      const statusDiv = document.getElementById('apk-upload-status');
+      const btn = document.getElementById('apk-upload-btn');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please choose an APK file.');
+        return;
+      }
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('version', document.getElementById('apk-version').value);
+      formData.append('versionCode', document.getElementById('apk-code').value);
+      formData.append('releaseNotes', document.getElementById('apk-notes').value);
+
+      btn.disabled = true;
+      btn.innerText = 'Uploading APK to Cloudflare R2...';
+      statusDiv.innerText = 'Streaming ' + (file.size / (1024 * 1024)).toFixed(1) + ' MB to Cloudflare R2...';
+
+      try {
+        const res = await fetch('/api/admin/release/upload-apk', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusDiv.innerHTML = '<span style=\"color: #10b981;\">✓ APK uploaded successfully! Available at /api/app/download</span>';
+          alert('APK uploaded & release metadata published to Cloudflare R2 successfully!');
+          location.reload();
+        } else {
+          statusDiv.innerHTML = '<span style=\"color: #ef4444;\">Upload failed: ' + (data.error || 'Server error') + '</span>';
+        }
+      } catch (err) {
+        statusDiv.innerHTML = '<span style=\"color: #ef4444;\">Error uploading: ' + err.message + '</span>';
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Upload APK & Publish OTA Update';
       }
     }
 

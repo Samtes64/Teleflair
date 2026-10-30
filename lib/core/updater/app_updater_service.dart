@@ -5,6 +5,28 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum AppInstallStatus {
+  success,
+  permissionNeeded,
+  downloadFailed,
+  fileError,
+}
+
+class AppInstallResult {
+  final AppInstallStatus status;
+  final String? errorMessage;
+  final String? filePath;
+
+  const AppInstallResult({
+    required this.status,
+    this.errorMessage,
+    this.filePath,
+  });
+
+  bool get isSuccess => status == AppInstallStatus.success;
+  bool get isPermissionNeeded => status == AppInstallStatus.permissionNeeded;
+}
+
 class AppUpdateInfo {
   final String version;
   final int versionCode;
@@ -72,8 +94,77 @@ class AppUpdaterService {
     return null;
   }
 
+  /// Checks whether app has permission to install unknown packages (Android 8.0+)
+  static Future<bool> canRequestPackageInstalls() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('canRequestPackageInstalls');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the Unknown App Sources settings screen for this app
+  static Future<void> openInstallPermissionSettings() async {
+    try {
+      await _channel.invokeMethod('openInstallPermissionSettings');
+    } catch (_) {}
+  }
+
+  /// Returns cached APK file if already downloaded and valid
+  static Future<File?> getCachedApk() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final apkFile = File('${tempDir.path}/teleflair_update.apk');
+      if (await apkFile.exists() && await apkFile.length() > 100000) {
+        return apkFile;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Launches installer for an existing local APK file
+  static Future<AppInstallResult> installExistingApk(String filePath) async {
+    try {
+      final res = await _channel.invokeMethod<dynamic>('installApk', {
+        'filePath': filePath,
+      });
+
+      if (res == 'SUCCESS' || res == true) {
+        return AppInstallResult(
+          status: AppInstallStatus.success,
+          filePath: filePath,
+        );
+      } else if (res == 'PERMISSION_NEEDED' || res == false) {
+        return AppInstallResult(
+          status: AppInstallStatus.permissionNeeded,
+          errorMessage: 'Permission to install unknown apps is required',
+          filePath: filePath,
+        );
+      } else {
+        return AppInstallResult(
+          status: AppInstallStatus.fileError,
+          errorMessage: 'Installation response: $res',
+          filePath: filePath,
+        );
+      }
+    } on PlatformException catch (e) {
+      return AppInstallResult(
+        status: AppInstallStatus.fileError,
+        errorMessage: e.message ?? 'Native installation error',
+        filePath: filePath,
+      );
+    } catch (e) {
+      return AppInstallResult(
+        status: AppInstallStatus.fileError,
+        errorMessage: e.toString(),
+        filePath: filePath,
+      );
+    }
+  }
+
   /// Download APK and invoke Android native PackageInstaller
-  static Future<bool> downloadAndInstallApk({
+  static Future<AppInstallResult> downloadAndInstallApk({
     required String downloadUrl,
     http.Client? client,
     void Function(double progress)? onProgress,
@@ -85,14 +176,26 @@ class AppUpdaterService {
       final httpClient = client ?? http.Client();
       try {
         final request = http.Request('GET', Uri.parse(downloadUrl));
+        request.followRedirects = true;
+        request.maxRedirects = 10;
         final streamedResponse = await httpClient.send(request);
 
         if (streamedResponse.statusCode != 200) {
-          return false;
+          return AppInstallResult(
+            status: AppInstallStatus.downloadFailed,
+            errorMessage: 'Server returned HTTP ${streamedResponse.statusCode}',
+          );
         }
 
         final contentLength = streamedResponse.contentLength ?? 0;
         int receivedBytes = 0;
+
+        if (await apkFile.exists()) {
+          try {
+            await apkFile.delete();
+          } catch (_) {}
+        }
+
         final sink = apkFile.openWrite();
 
         await streamedResponse.stream.listen((chunk) {
@@ -106,19 +209,27 @@ class AppUpdaterService {
         await sink.flush();
         await sink.close();
 
-        // Trigger native package installation
-        final success = await _channel.invokeMethod<bool>('installApk', {
-          'filePath': apkFile.path,
-        });
+        // Verify downloaded file size
+        final fileSize = await apkFile.length();
+        if (fileSize < 50000) {
+          return const AppInstallResult(
+            status: AppInstallStatus.fileError,
+            errorMessage: 'Downloaded file is invalid or incomplete',
+          );
+        }
 
-        return success ?? false;
+        // Trigger native package installation
+        return await installExistingApk(apkFile.path);
       } finally {
         if (client == null) {
           httpClient.close();
         }
       }
-    } catch (_) {
-      return false;
+    } catch (e) {
+      return AppInstallResult(
+        status: AppInstallStatus.downloadFailed,
+        errorMessage: e.toString(),
+      );
     }
   }
 }

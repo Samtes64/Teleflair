@@ -21,7 +21,7 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   final DatabaseService _db = DatabaseService.instance;
   final TextEditingController _botTokenController = TextEditingController();
 
@@ -51,6 +51,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   AppUpdateInfo? _availableUpdate;
   double? _downloadProgress;
   String? _updateStatusMessage;
+  String? _pendingApkPath;
+  bool _canInstallUnknown = true;
 
   Future<void> _handleCheckForUpdate() async {
     setState(() {
@@ -77,12 +79,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final update = _availableUpdate;
     if (update == null || update.downloadUrl.isEmpty) return;
 
+    // Check if we already have a cached valid APK
+    final cachedApk = await AppUpdaterService.getCachedApk();
+    if (cachedApk != null && _canInstallUnknown) {
+      setState(() {
+        _updateStatusMessage = 'Opening package installer...';
+      });
+      final result = await AppUpdaterService.installExistingApk(cachedApk.path);
+      if (mounted) {
+        setState(() {
+          if (result.isSuccess) {
+            _updateStatusMessage = 'Package installer opened! Please confirm the prompt.';
+          } else if (result.isPermissionNeeded) {
+            _pendingApkPath = cachedApk.path;
+            _updateStatusMessage = 'Permission needed: Please enable "Allow from this source" in Settings.';
+          } else {
+            _updateStatusMessage = result.errorMessage ?? 'Installation failed.';
+          }
+        });
+      }
+      return;
+    }
+
     setState(() {
       _downloadProgress = 0.01;
       _updateStatusMessage = 'Downloading update package...';
     });
 
-    final success = await AppUpdaterService.downloadAndInstallApk(
+    final result = await AppUpdaterService.downloadAndInstallApk(
       downloadUrl: update.downloadUrl,
       onProgress: (p) {
         if (mounted) {
@@ -94,8 +118,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _downloadProgress = null;
-        if (!success) {
-          _updateStatusMessage = 'Install request opened or permission needed. Please confirm the prompt.';
+        if (result.isSuccess) {
+          _pendingApkPath = null;
+          _updateStatusMessage = 'Package installer opened! Please confirm the prompt.';
+        } else if (result.isPermissionNeeded) {
+          _pendingApkPath = result.filePath;
+          _updateStatusMessage = 'Permission required: Please enable "Allow from this source" in Settings, then return here to install.';
+        } else if (result.status == AppInstallStatus.downloadFailed) {
+          _updateStatusMessage = 'Download failed: ${result.errorMessage ?? "Check your network connection"}';
+        } else {
+          _updateStatusMessage = 'Installation error: ${result.errorMessage ?? "Invalid package"}';
         }
       });
     }
@@ -104,8 +136,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkImeStatus();
+    _checkInstallPermission();
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _botTokenController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkImeStatus();
+      _checkInstallPermission();
+    }
+  }
+
+  Future<void> _checkInstallPermission() async {
+    final canInstall = await AppUpdaterService.canRequestPackageInstalls();
+    if (mounted) {
+      setState(() => _canInstallUnknown = canInstall);
+    }
+    if (canInstall && _pendingApkPath != null) {
+      final path = _pendingApkPath!;
+      _pendingApkPath = null;
+      final result = await AppUpdaterService.installExistingApk(path);
+      if (mounted) {
+        setState(() {
+          if (result.isSuccess) {
+            _updateStatusMessage = 'Package installer opened! Please confirm the prompt.';
+          } else {
+            _updateStatusMessage = result.errorMessage ?? 'Installation failed.';
+          }
+        });
+      }
+    }
   }
 
   Future<void> _checkImeStatus() async {
@@ -1050,6 +1120,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Downloading: ${((_downloadProgress ?? 0) * 100).toInt()}%',
                               style: TextStyle(color: mutedColor, fontSize: 11),
                             ),
+                          ] else if (_pendingApkPath != null && !_canInstallUnknown) ...[
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF5931FE),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.pill)),
+                              ),
+                              icon: const Icon(Icons.security, size: 16),
+                              onPressed: () async {
+                                await ImePlatformBridge.openInstallPermissionSettings();
+                              },
+                              label: const Text('Grant Install Permission in Settings', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            ),
+                          ] else if (_pendingApkPath != null) ...[
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDark ? AppColors.white : AppColors.black,
+                                foregroundColor: isDark ? AppColors.black : AppColors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.pill)),
+                              ),
+                              icon: const Icon(Icons.install_mobile, size: 16),
+                              onPressed: _handleDownloadAndInstall,
+                              label: const Text('Install Downloaded Update', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            ),
                           ] else ...[
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
@@ -1091,7 +1185,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       _updateStatusMessage!,
                       style: TextStyle(
-                        color: _availableUpdate?.hasUpdate == true ? Colors.green : mutedColor,
+                        color: _updateStatusMessage!.toLowerCase().contains('failed') || _updateStatusMessage!.toLowerCase().contains('error')
+                            ? Colors.redAccent
+                            : (_updateStatusMessage!.contains('opened') || _availableUpdate?.hasUpdate == true ? Colors.green : mutedColor),
                         fontSize: 11,
                       ),
                     ),

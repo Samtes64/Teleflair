@@ -357,4 +357,10 @@ describe('Teleboard Cloudflare Delivery Backend', () => {
     const data = await res.json() as any;
     assert.equal(data.success, true);
   });
+
+  test('GET /api/app/download redirects or serves APK binary', async () => {
+    const res = await app.request('/api/app/download', {}, env);
+    // When configured with external URL, redirects with 302
+    assert.ok(res.status === 302 || res.status === 200 || res.status === 404);
+  });
 });

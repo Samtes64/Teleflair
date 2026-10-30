@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:teleboard/app/theme/design_tokens.dart';
+import 'package:teleboard/core/platform/ime_platform_bridge.dart';
 import 'package:teleboard/core/storage/database_service.dart';
 import 'package:teleboard/features/stickers/domain/models.dart';
 import 'package:teleboard/features/text_art/application/text_art_converter.dart';
@@ -13,7 +15,7 @@ class StickersScreen extends StatefulWidget {
   State<StickersScreen> createState() => _StickersScreenState();
 }
 
-class _StickersScreenState extends State<StickersScreen> {
+class _StickersScreenState extends State<StickersScreen> with WidgetsBindingObserver {
   final DatabaseService _db = DatabaseService.instance;
   List<StickerPack> _packs = [];
   List<StickerItem> _stickers = [];
@@ -21,10 +23,54 @@ class _StickersScreenState extends State<StickersScreen> {
   String _searchQuery = '';
   bool _isLoading = true;
 
+  bool _isImeEnabled = false;
+  bool _isImeSelected = false;
+  bool _isBannerDismissed = false;
+  bool _hasCheckedIme = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkImeStatus();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkImeStatus();
+    }
+  }
+
+  Future<void> _checkImeStatus() async {
+    final enabled = await ImePlatformBridge.isImeEnabled();
+    final selected = await ImePlatformBridge.isImeSelected();
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('ime_onboarding_dismissed') ?? false;
+
+    if (mounted) {
+      setState(() {
+        _isImeEnabled = enabled;
+        _isImeSelected = selected;
+        _isBannerDismissed = dismissed && (enabled && selected);
+        _hasCheckedIme = true;
+      });
+    }
+  }
+
+  Future<void> _dismissBanner() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ime_onboarding_dismissed', true);
+    if (mounted) {
+      setState(() => _isBannerDismissed = true);
+    }
   }
 
   Future<void> _loadData() async {
@@ -86,6 +132,9 @@ class _StickersScreenState extends State<StickersScreen> {
       ),
       body: Column(
         children: [
+          // First-Time Setup & Activation Banner
+          _buildOnboardingCard(isDark, textColor, mutedColor),
+
           // Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -260,6 +309,186 @@ class _StickersScreenState extends State<StickersScreen> {
           _db.recordStickerUse(sticker.id);
           _loadData();
         },
+      ),
+    );
+  }
+
+  Widget _buildOnboardingCard(bool isDark, Color textColor, Color mutedColor) {
+    if (!_hasCheckedIme) return const SizedBox.shrink();
+    final allDone = _isImeEnabled && _isImeSelected;
+    if (allDone && _isBannerDismissed) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF13141B) : const Color(0xFFF3EFFF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF5931FE).withValues(alpha: isDark ? 0.4 : 0.25),
+            width: 1.2,
+          ),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5931FE).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.keyboard_alt_outlined,
+                    color: Color(0xFF5931FE),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        allDone ? 'Keyboard Setup Complete' : 'Activate Teleflair Keyboard',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        allDone
+                            ? 'Teleflair is enabled and ready to use in any app!'
+                            : 'Follow these 2 quick steps to start typing & sending stickers.',
+                        style: TextStyle(color: mutedColor, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (allDone)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    color: mutedColor,
+                    tooltip: 'Dismiss',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _dismissBanner,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Step 1: Enable in Settings
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1B1C24) : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE4E4E7),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isImeEnabled ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: _isImeEnabled ? Colors.green : mutedColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '1. Enable Teleflair in Settings',
+                      style: TextStyle(
+                        color: _isImeEnabled ? mutedColor : textColor,
+                        fontSize: 12,
+                        fontWeight: _isImeEnabled ? FontWeight.w400 : FontWeight.w600,
+                        decoration: _isImeEnabled ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  if (!_isImeEnabled)
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5931FE),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onPressed: () async {
+                        await ImePlatformBridge.openImeSettings();
+                        Future.delayed(const Duration(seconds: 1), _checkImeStatus);
+                      },
+                      child: const Text('Enable', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    )
+                  else
+                    const Text('Enabled ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // Step 2: Select Keyboard
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1B1C24) : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE4E4E7),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isImeSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: _isImeSelected ? Colors.green : mutedColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '2. Select Teleflair Keyboard',
+                      style: TextStyle(
+                        color: _isImeSelected ? mutedColor : textColor,
+                        fontSize: 12,
+                        fontWeight: _isImeSelected ? FontWeight.w400 : FontWeight.w600,
+                        decoration: _isImeSelected ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  if (!_isImeSelected)
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isImeEnabled ? const Color(0xFF5931FE) : (isDark ? Colors.grey[800] : Colors.grey[300]),
+                        foregroundColor: _isImeEnabled ? Colors.white : mutedColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onPressed: _isImeEnabled
+                          ? () async {
+                              await ImePlatformBridge.showImePicker();
+                              Future.delayed(const Duration(seconds: 1), _checkImeStatus);
+                            }
+                          : null,
+                      child: const Text('Select', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    )
+                  else
+                    const Text('Active ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

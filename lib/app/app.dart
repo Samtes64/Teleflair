@@ -19,7 +19,7 @@ class TeleboardApp extends StatefulWidget {
 
 class _TeleboardAppState extends State<TeleboardApp> {
   static const _channel = MethodChannel('com.teleboard.teleboard/ime_control');
-  bool _isDarkMode = true;
+  bool _isDarkMode = false;
   int _currentIndex = 0;
 
   @override
@@ -52,7 +52,7 @@ class _TeleboardAppState extends State<TeleboardApp> {
 
   Future<void> _loadThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool('is_dark_mode') ?? true;
+    final isDark = prefs.getBool('is_dark_mode') ?? false;
     setState(() => _isDarkMode = isDark);
   }
 

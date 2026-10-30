@@ -563,6 +563,44 @@ app.get('/api/admin/test-telegram', async (c) => {
   }
 });
 
+// Admin APK File Upload API (Direct R2 Storage)
+app.post('/api/admin/release/upload-apk', async (c) => {
+  if (!verifyAdminAuth(c)) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  if (!c.env.STICKER_BUCKET) {
+    return c.json({ success: false, error: 'STICKER_BUCKET not bound' }, 500);
+  }
+  try {
+    const formData = await c.req.parseBody();
+    const file = formData['file'];
+    if (!file || typeof file === 'string') {
+      return c.json({ success: false, error: 'No APK file provided' }, 400);
+    }
+    const version = String(formData['version'] || '1.0.1');
+    const versionCode = Number(formData['versionCode']) || 2;
+    const releaseNotes = String(formData['releaseNotes'] || 'Direct app update');
+
+    const fileBuffer = await (file as File).arrayBuffer();
+    await c.env.STICKER_BUCKET.put('releases/teleflair-latest.apk', fileBuffer, {
+      httpMetadata: { contentType: 'application/vnd.android.package-archive' },
+    });
+
+    const origin = new URL(c.req.url).origin;
+    const newRelease: AppReleaseConfig = {
+      version,
+      versionCode,
+      downloadUrl: `${origin}/api/app/download`,
+      releaseNotes,
+      updatedAt: Date.now(),
+    };
+    await updateAppRelease(c.env, newRelease);
+    return c.json({ success: true, release: newRelease });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Failed to upload APK' }, 500);
+  }
+});
+
 // App update metadata endpoint (queried by mobile app update checker)
 app.get('/api/app/latest', async (c) => {
   const release = await getAppRelease(c.env);
@@ -576,6 +614,25 @@ app.get('/api/app/latest', async (c) => {
     minSupportedVersionCode: release.minSupportedVersionCode ?? 1,
     publishedAt: new Date(release.updatedAt).toISOString(),
   });
+});
+
+// App direct APK download endpoint
+app.get('/api/app/download', async (c) => {
+  if (c.env.STICKER_BUCKET) {
+    const obj = (await c.env.STICKER_BUCKET.get('releases/teleflair-arm64-v8a.apk')) ||
+                (await c.env.STICKER_BUCKET.get('releases/teleflair-latest.apk'));
+    if (obj) {
+      c.header('Content-Type', 'application/vnd.android.package-archive');
+      c.header('Content-Disposition', 'attachment; filename="teleflair.apk"');
+      return c.body(obj.body);
+    }
+  }
+  const release = await getAppRelease(c.env);
+  const selfUrl = `${new URL(c.req.url).origin}/api/app/download`;
+  if (release.downloadUrl && release.downloadUrl !== selfUrl) {
+    return c.redirect(release.downloadUrl, 302);
+  }
+  return c.text('No APK available on server yet. Upload via admin console.', 404);
 });
 
 export default app;

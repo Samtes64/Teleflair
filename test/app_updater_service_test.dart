@@ -63,5 +63,30 @@ void main() {
       expect(update.version, equals('1.0.2'));
       expect(update.versionCode, equals(3));
     });
+
+    test('downloadAndInstallApk handles HTTP non-200 gracefully without throwing', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('Not Found', 404);
+      });
+
+      final result = await AppUpdaterService.downloadAndInstallApk(
+        downloadUrl: 'https://example.com/not-found.apk',
+        client: mockClient,
+      );
+
+      expect(result.status, equals(AppInstallStatus.downloadFailed));
+      expect(result.isSuccess, isFalse);
+      expect(result.errorMessage, contains('404'));
+    });
+
+    test('AppInstallResult getters correctly map statuses', () {
+      const successResult = AppInstallResult(status: AppInstallStatus.success);
+      expect(successResult.isSuccess, isTrue);
+      expect(successResult.isPermissionNeeded, isFalse);
+
+      const permResult = AppInstallResult(status: AppInstallStatus.permissionNeeded);
+      expect(permResult.isSuccess, isFalse);
+      expect(permResult.isPermissionNeeded, isTrue);
+    });
   });
 }

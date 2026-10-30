@@ -173,10 +173,10 @@ export function getTelemetryStorage(env: Env): ITelemetryStorage {
 }
 
 const DEFAULT_RELEASE: AppReleaseConfig = {
-  version: '1.0.1',
-  versionCode: 2,
-  downloadUrl: 'https://github.com/Samtes64/Teleflair/releases/latest/download/app-arm64-v8a-release.apk',
-  releaseNotes: 'Optimized R8 release with architecture splitting and responsive bottom navigation.',
+  version: '1.0.0',
+  versionCode: 1,
+  downloadUrl: 'https://teleboard-delivery.samteleboard.workers.dev/api/app/download',
+  releaseNotes: 'Official Release with Light Theme default, onboarding keyboard guide, and optimized R8 vector engine.',
   minSupportedVersionCode: 1,
   updatedAt: Date.now(),
 };

@@ -16,7 +16,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     SharedPreferences.setMockInitialValues({
-      'is_dark_mode': true,
+      'is_dark_mode': false,
       'keyboard_font_size': 'medium',
       'keyboard_height_scale': 'standard',
       'keyboard_key_shape': 'rounded',

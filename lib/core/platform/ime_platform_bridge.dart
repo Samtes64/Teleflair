@@ -53,4 +53,21 @@ class ImePlatformBridge {
       await _channel.invokeMethod('openAccessibilitySettings');
     } catch (_) {}
   }
+
+  /// Checks whether app is allowed to install unknown APK packages (Android 8.0+).
+  static Future<bool> canRequestPackageInstalls() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('canRequestPackageInstalls');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the Unknown App Sources settings screen for this app (Android 8.0+).
+  static Future<void> openInstallPermissionSettings() async {
+    try {
+      await _channel.invokeMethod('openInstallPermissionSettings');
+    } catch (_) {}
+  }
 }
