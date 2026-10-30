@@ -2,11 +2,19 @@
 
 > **A privacy-first Android keyboard with high-performance Telegram sticker importing, universal Smart Delivery, and edge serverless sync.**
 
+[![Download APK](https://img.shields.io/badge/Download_APK-Telegram_Channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/thesam_ple_resources/7)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.24+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+---
+
+### 📥 Direct APK Download
+
+Looking to install and use Teleflair right away without compiling from source?  
+👉 **[Download the Latest Release APK Directly](https://t.me/thesam_ple_resources/7)** (Available on Telegram)
 
 ---
 
