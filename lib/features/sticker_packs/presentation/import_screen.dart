@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:teleboard/app/theme/design_tokens.dart';
 import 'package:teleboard/core/storage/database_service.dart';
 import 'package:teleboard/features/sticker_packs/application/telegram_importer.dart';
+import 'package:teleboard/features/sticker_packs/domain/featured_pack.dart';
 import 'package:teleboard/features/stickers/domain/models.dart';
 
 class ImportScreen extends StatefulWidget {
@@ -25,7 +26,12 @@ class _ImportScreenState extends State<ImportScreen> {
   double _progress = 0.0;
   String? _progressMessage;
   String? _errorMessage;
+  String? _activeImportingPack;
   List<StickerPack> _installedPacks = [];
+
+  bool _isPackInstalled(String packName) {
+    return _installedPacks.any((p) => p.name.toLowerCase() == packName.toLowerCase());
+  }
 
   @override
   void initState() {
@@ -68,6 +74,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
     setState(() {
       _isImporting = true;
+      _activeImportingPack = packName;
       _errorMessage = null;
       _progress = 0.0;
       _progressMessage = 'Contacting Telegram API...';
@@ -114,6 +121,13 @@ class _ImportScreenState extends State<ImportScreen> {
           final secs = e.retryAfterSeconds ?? 30;
           _errorMessage = 'Telegram rate limit reached. Please retry in $secs seconds or configure a custom token in Settings.';
         }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+          _activeImportingPack = null;
+        });
       }
     }
   }
@@ -264,6 +278,10 @@ class _ImportScreenState extends State<ImportScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // 2.3. Featured Starter Pack Shortcuts (1-Tap Import)
+          _buildFeaturedShortcutsCard(isDark, textColor, mutedColor, cardBg),
           const SizedBox(height: 16),
 
           // 2.5. Hidden / Collapsible "How to Import Stickers" Guide
@@ -525,6 +543,198 @@ class _ImportScreenState extends State<ImportScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFeaturedShortcutsCard(bool isDark, Color textColor, Color mutedColor, Color cardBg) {
+    return Card(
+      color: cardBg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5931FE).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.bolt_rounded,
+                    color: Color(0xFF5931FE),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Popular Starter Packs',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '1-tap shortcuts to popular sticker sets for quick setup:',
+                        style: TextStyle(color: mutedColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // The 4 Featured Sticker Packs
+            ...kFeaturedStickerPacks.map((pack) {
+              final isInstalled = _isPackInstalled(pack.packName);
+              final isCurrentlyImporting = _activeImportingPack == pack.packName;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E22) : const Color(0xFFF9F9FB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Avatar / Emoji
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF27272A) : Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE4E4E7),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(pack.emoji, style: const TextStyle(fontSize: 22)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Pack Title & Description
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  pack.title,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF5931FE).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  pack.category,
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF5931FE),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            pack.description,
+                            style: TextStyle(color: mutedColor, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Action Button or Installed Badge
+                    if (isInstalled)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 14, color: Colors.green),
+                            SizedBox(width: 4),
+                            Text(
+                              'Installed',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (isCurrentlyImporting)
+                      const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5931FE)),
+                        ),
+                      )
+                    else
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5931FE),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.pill)),
+                          elevation: 0,
+                        ),
+                        onPressed: _isImporting ? null : () => _importPack(pack.url),
+                        child: const Text(
+                          '1-Tap Import',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -16,6 +16,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     SharedPreferences.setMockInitialValues({
+      'first_install_guide_completed': true,
       'is_dark_mode': false,
       'keyboard_font_size': 'medium',
       'keyboard_height_scale': 'standard',
@@ -36,10 +37,10 @@ void main() {
     // Verify Settings Screen is loaded
     expect(find.text('Keyboard Setup'), findsOneWidget);
 
-    // Scroll through the whole settings screen
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    // Scroll through the whole settings screen to reveal customization card
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Keyboard Experience & Customization'), findsOneWidget);
 

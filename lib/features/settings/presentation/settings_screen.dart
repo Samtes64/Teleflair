@@ -6,6 +6,7 @@ import 'package:teleboard/core/platform/ime_platform_bridge.dart';
 import 'package:teleboard/core/storage/database_service.dart';
 import 'package:teleboard/core/updater/app_updater_service.dart';
 import 'package:teleboard/features/delivery/domain/delivery_state.dart';
+import 'package:teleboard/features/onboarding/presentation/app_guide_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -282,6 +283,26 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Step-by-Step App Tour Card
+          Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5931FE).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.explore_outlined, color: Color(0xFF5931FE), size: 20),
+              ),
+              title: Text('Step-by-Step Feature Tour', style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 14)),
+              subtitle: Text('Review how to use the keyboard, stickers, and features.', style: TextStyle(color: mutedColor, fontSize: 12)),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => AppGuideDialog.show(context, isReplay: true),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Keyboard Activation Status Card
           Card(
             child: Padding(

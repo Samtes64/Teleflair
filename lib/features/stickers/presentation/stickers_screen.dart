@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:teleboard/app/theme/design_tokens.dart';
 import 'package:teleboard/core/platform/ime_platform_bridge.dart';
 import 'package:teleboard/core/storage/database_service.dart';
+import 'package:teleboard/features/onboarding/presentation/app_guide_dialog.dart';
+import 'package:teleboard/features/sticker_packs/application/telegram_importer.dart';
+import 'package:teleboard/features/sticker_packs/domain/featured_pack.dart';
 import 'package:teleboard/features/stickers/domain/models.dart';
 import 'package:teleboard/features/text_art/application/text_art_converter.dart';
 
@@ -34,6 +37,17 @@ class _StickersScreenState extends State<StickersScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _checkImeStatus();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFirstInstallTour();
+    });
+  }
+
+  Future<void> _checkFirstInstallTour() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tourDone = prefs.getBool('first_install_guide_completed') ?? false;
+    if (!tourDone && mounted) {
+      AppGuideDialog.show(context);
+    }
   }
 
   @override
@@ -113,6 +127,39 @@ class _StickersScreenState extends State<StickersScreen> with WidgetsBindingObse
     return _stickers.where((s) => s.emoji.contains(q) || s.packId.toLowerCase().contains(q)).toList();
   }
 
+  Future<void> _importStarterPack(String packInput) async {
+    final packName = TelegramImporter.extractPackName(packInput);
+    if (packName == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final botToken = prefs.getString('telegram_bot_token');
+      final proxyUrl = prefs.getString('cloudflare_worker_url') ?? 'https://teleboard-delivery.samteleboard.workers.dev';
+      final importer = TelegramImporter();
+      await importer.importPack(
+        packIdentifier: packName,
+        botToken: botToken,
+        backendProxyUrl: proxyUrl,
+      );
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported pack "$packName" successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to import: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -179,23 +226,84 @@ class _StickersScreenState extends State<StickersScreen> with WidgetsBindingObse
                 ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                 : _filteredStickers.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.auto_awesome_motion_outlined, size: 48, color: mutedColor),
-                            const SizedBox(height: 12),
-                            Text(
-                              _packs.isEmpty ? 'No sticker packs installed' : 'No stickers found',
-                              style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 16),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _packs.isEmpty
-                                  ? 'Head over to the Import tab to add your favorite Telegram sticker packs'
-                                  : 'Try a different filter or search term',
-                              style: TextStyle(color: mutedColor, fontSize: 13),
-                            ),
-                          ],
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.auto_awesome_motion_outlined, size: 44, color: mutedColor),
+                              const SizedBox(height: 12),
+                              Text(
+                                _packs.isEmpty ? 'No sticker packs installed yet' : 'No stickers found',
+                                style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 16),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _packs.isEmpty
+                                    ? 'Get started instantly with any of these popular starter packs:'
+                                    : 'Try a different filter or search term',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: mutedColor, fontSize: 12),
+                              ),
+                              if (_packs.isEmpty) ...[
+                                const SizedBox(height: 16),
+                                ...kFeaturedStickerPacks.map((pack) {
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF1E1E22) : const Color(0xFFF4F4F5),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(pack.emoji, style: const TextStyle(fontSize: 22)),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                pack.title,
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              Text(
+                                                pack.description,
+                                                style: TextStyle(color: mutedColor, fontSize: 11),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF5931FE),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                            elevation: 0,
+                                          ),
+                                          onPressed: () => _importStarterPack(pack.url),
+                                          child: const Text('1-Tap Import', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ],
+                          ),
                         ),
                       )
                     : GridView.builder(

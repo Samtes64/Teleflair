@@ -167,10 +167,11 @@ class AppUpdaterService {
   static Future<AppInstallResult> downloadAndInstallApk({
     required String downloadUrl,
     http.Client? client,
+    Directory? targetDirectory,
     void Function(double progress)? onProgress,
   }) async {
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempDir = targetDirectory ?? await getTemporaryDirectory();
       final apkFile = File('${tempDir.path}/teleflair_update.apk');
 
       final httpClient = client ?? http.Client();
