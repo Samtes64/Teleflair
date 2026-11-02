@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.teleboard.teleboard"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,8 +22,8 @@ android {
         applicationId = "com.teleboard.teleboard"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -47,6 +47,8 @@ android {
                 storeFile = file("teleflair.keystore")
                 storePassword = "teleflair_release_key"
             }
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 
@@ -58,6 +60,12 @@ android {
             signingConfig = signingConfigs.getByName("teleflair")
             isMinifyEnabled = false
             isShrinkResources = false
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 
