@@ -46,16 +46,6 @@ class MainActivity : FlutterActivity() {
                     imm.showInputMethodPicker()
                     result.success(true)
                 }
-                "isAccessibilityEnabled" -> {
-                    result.success(isAccessibilityEnabled())
-                }
-                "openAccessibilitySettings" -> {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    startActivity(intent)
-                    result.success(true)
-                }
                 "canRequestPackageInstalls" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         result.success(packageManager.canRequestPackageInstalls())
@@ -168,13 +158,5 @@ class MainActivity : FlutterActivity() {
             Settings.Secure.DEFAULT_INPUT_METHOD
         ) ?: return false
         return currentIme.contains(packageName)
-    }
-
-    private fun isAccessibilityEnabled(): Boolean {
-        val enabledServices = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        return enabledServices.contains(packageName) && enabledServices.contains("ContextScannerService")
     }
 }

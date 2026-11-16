@@ -2,7 +2,7 @@
 
 > **A privacy-first Android keyboard with high-performance Telegram sticker importing, universal Smart Delivery, and edge serverless sync.**
 
-[![Download APK](https://img.shields.io/badge/Download_APK-Telegram_Channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/thesam_ple_resources/8)
+[![Download APK](https://img.shields.io/badge/Download_APK-Telegram_Channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/thesam_ple_resources/9)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.24+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -14,7 +14,7 @@
 ### 📥 Direct APK Download
 
 Looking to install and use Teleflair right away without compiling from source?  
-👉 **[Download the Latest Release APK Directly](https://t.me/thesam_ple_resources/8)** (Available on Telegram)
+👉 **[Download the Latest Release APK Directly](https://t.me/thesam_ple_resources/9)** (Available on Telegram)
 
 ---
 
@@ -52,7 +52,7 @@ Teleflair uses a decoupled, hybrid architecture to guarantee zero-latency input 
 |  |  * Settings & Sensory Configuration |   |  * StickerPickerView (Vector Grid) | |
 |  |  * SQLite Bridge (sqflite)          |   |  * GlideTypingDetector (Catmull)   | |
 |  |                                     |   |  * SmartDeliveryCoordinator        | |
-|  |                                     |   |  * ContextScannerService (A11y)    | |
+|  |                                     |   |  * Heuristic context detection     | |
 |  +------------------+------------------+   +------------------+-----------------+ |
 |                     |                                         |                   |
 |                     +--------------------+--------------------+                   |
@@ -91,8 +91,8 @@ Teleflair uses a decoupled, hybrid architecture to guarantee zero-latency input 
    - **Mode 3 (Universal SMS Fallback)**: Formats stickers as Universal SMS payloads to avoid carrier MMS compression failures.
    - **Mode 4 (Context Art for Comment Sections)**: Converts stickers into platform-calibrated Unicode Braille (2×4 dot matrix) or ASCII art for Instagram, TikTok, and LinkedIn comments where image pasting is disabled.
 
-3. **Dual-Service Process Isolation**:
-   - The **Context Scanner** (`ContextScannerService`) runs as a detached Android Accessibility service, analyzing input field types without ever sharing memory or intercepting keystrokes from the IME service.
+3. **No Accessibility Permissions**:
+   - Context (comment, post, DM, SMS) is inferred from the focused field's `EditorInfo` inside the IME itself, so no Accessibility service is required and the APK installs cleanly past Google Play Protect.
 
 4. **Edge Serverless Backend (Cloudflare Workers + R2)**:
    - TypeScript worker utilizing Hono for high-performance edge routing.

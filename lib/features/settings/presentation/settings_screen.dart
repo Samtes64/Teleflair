@@ -28,7 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   bool _isImeEnabled = false;
   bool _isImeSelected = false;
-  bool _isAccessibilityEnabled = false;
   bool _enableTextArtFallback = true;
   String _keyboardArtStyle = 'braille';
   String _keyboardArtTheme = 'light';
@@ -182,12 +181,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   Future<void> _checkImeStatus() async {
     final enabled = await ImePlatformBridge.isImeEnabled();
     final selected = await ImePlatformBridge.isImeSelected();
-    final a11y = await ImePlatformBridge.isAccessibilityEnabled();
     if (mounted) {
       setState(() {
         _isImeEnabled = enabled;
         _isImeSelected = selected;
-        _isAccessibilityEnabled = a11y;
       });
     }
   }
@@ -350,22 +347,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     buttonLabel: 'Select Keyboard',
                     onAction: () async {
                       await ImePlatformBridge.showImePicker();
-                      Future.delayed(const Duration(seconds: 1), _checkImeStatus);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Step 3: Smart Context Detection
-                  _buildSetupStep(
-                    step: 3,
-                    title: 'Smart Context Detection',
-                    subtitle: _isAccessibilityEnabled
-                        ? 'Active • Auto-adapts comments, posts & DMs'
-                        : 'Optional • Auto-adapts comments, posts & DMs',
-                    isDone: _isAccessibilityEnabled,
-                    buttonLabel: 'Enable Detection',
-                    onAction: () async {
-                      await ImePlatformBridge.openAccessibilitySettings();
                       Future.delayed(const Duration(seconds: 1), _checkImeStatus);
                     },
                   ),

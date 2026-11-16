@@ -37,23 +37,6 @@ class ImePlatformBridge {
     } catch (_) {}
   }
 
-  /// Checks whether Teleboard's Smart Context Detection accessibility service is enabled.
-  static Future<bool> isAccessibilityEnabled() async {
-    try {
-      final res = await _channel.invokeMethod<bool>('isAccessibilityEnabled');
-      return res ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Launches Android's Accessibility settings screen.
-  static Future<void> openAccessibilitySettings() async {
-    try {
-      await _channel.invokeMethod('openAccessibilitySettings');
-    } catch (_) {}
-  }
-
   /// Checks whether app is allowed to install unknown APK packages (Android 8.0+).
   static Future<bool> canRequestPackageInstalls() async {
     try {

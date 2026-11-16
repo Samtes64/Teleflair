@@ -1,11 +1,9 @@
 package com.teleboard.teleboard.keyboard
 
-import android.content.BroadcastReceiver
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.text.InputType
@@ -17,8 +15,6 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.teleboard.teleboard.keyboard.context.ContextScannerService
 import com.teleboard.teleboard.keyboard.engine.SuggestionStripView
 import com.teleboard.teleboard.keyboard.engine.TflitePredictionEngine
 import com.teleboard.teleboard.keyboard.gesture.GestureTrailView
@@ -49,26 +45,11 @@ class TeleboardInputMethodService : InputMethodService(),
     @Volatile private var currentPackage: String = ""
     @Volatile private var currentSubContext: String = "unknown"
 
-    private val contextReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val pkg = intent?.getStringExtra(ContextScannerService.EXTRA_PACKAGE_NAME) ?: ""
-            val sub = intent?.getStringExtra(ContextScannerService.EXTRA_SUB_CONTEXT) ?: "unknown"
-            if (pkg.isNotEmpty()) currentPackage = pkg
-            currentSubContext = sub
-            stickerPickerView?.updateContext(currentPackage, currentSubContext)
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
         dbHelper = TeleboardDatabaseHelper(this)
         deliveryCoordinator = SmartDeliveryCoordinator(this, dbHelper)
         predictionEngine = TflitePredictionEngine(this)
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            contextReceiver,
-            IntentFilter(ContextScannerService.ACTION_CONTEXT_MUTATION)
-        )
     }
 
     override fun onCreateInputView(): View {
@@ -541,9 +522,6 @@ class TeleboardInputMethodService : InputMethodService(),
 
     override fun onDestroy() {
         super.onDestroy()
-        try {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(contextReceiver)
-        } catch (_: Exception) {}
         predictionEngine.close()
         keyboardView?.soundPlayer?.release()
         physicsView?.pausePhysics()
